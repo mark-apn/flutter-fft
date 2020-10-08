@@ -2,8 +2,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 class FlutterFft {
-  static const MethodChannel _channel =
-      const MethodChannel("com.slins.flutterfft/record");
+  static const MethodChannel _channel = const MethodChannel("com.slins.flutterfft/record");
 
   static StreamController<List<Object>> _recorderController;
 

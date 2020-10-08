@@ -9,12 +9,9 @@ class Application extends StatefulWidget {
 }
 
 class ApplicationState extends State<Application> {
-  double
-      frequency; // Frequency variable which will be updated with th-> data returned by the plugin.
-  String
-      note; // Note variable which will be updated with th-> data returned by the plugin
-  bool
-      isRecording; // Is recording variable which will be updated with th-> data returned by the plugin
+  double frequency; // Frequency variable which will be updated with th-> data returned by the plugin.
+  String note; // Note variable which will be updated with th-> data returned by the plugin
+  bool isRecording; // Is recording variable which will be updated with th-> data returned by the plugin
 
   FlutterFft flutterFft = new FlutterFft();
 
@@ -76,11 +73,10 @@ class ApplicationState extends State<Application> {
 
   _initialize() async {
     print("Starting recorder...");
-    await flutterFft
-        .startRecorder(); // Waits for the recorder to properly start.
+    await flutterFft.startRecorder(); // Waits for the recorder to properly start.
     print("Recorder started.");
-    setState(() => isRecording = flutterFft
-        .getIsRecording); // Set the local "isRecording" variable to true once the recorder has started.
+    setState(() => isRecording =
+        flutterFft.getIsRecording); // Set the local "isRecording" variable to true once the recorder has started.
 
     // Listens to the update stream, whenever there's ne-> data, update the local "frequency" and "note"
     // with one of the values returned by the plugin.
@@ -100,17 +96,17 @@ class ApplicationState extends State<Application> {
     );
   }
 
-  // Tolerance (int) -> data[0]
-  // Frequency (double) -> data[1];
-  // Note (string) -> data[2];
-  // Target (double) -> data[3];
-  // Distance (double) -> data[4];
-  // Octave (int) -> data[5];
+// Tolerance (int) -> data[0]
+// Frequency (double) -> data[1];
+// Note (string) -> data[2];
+// Target (double) -> data[3];
+// Distance (double) -> data[4];
+// Octave (int) -> data[5];
 
-  // NearestNote (string) -> data[6];
-  // NearestTarget (double) -> data[7];
-  // NearestDistance (double) -> data[8];
-  // NearestOctave (int) -> data[9];
+// NearestNote (string) -> data[6];
+// NearestTarget (double) -> data[7];
+// NearestDistance (double) -> data[8];
+// NearestOctave (int) -> data[9];
 
-  // IsOnPitch (bool) -> data[10];
+// IsOnPitch (bool) -> data[10];
 }

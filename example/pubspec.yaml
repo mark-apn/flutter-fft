@@ -9,9 +9,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  flutter_fft: ^0.0.1
-
-  cupertino_icons: ^0.1.2
+  flutter_fft:
+    path: ../
 
 dev_dependencies:
   flutter_test:
