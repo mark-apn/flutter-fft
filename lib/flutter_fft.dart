@@ -1,100 +1,34 @@
 import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 class FlutterFft {
   static const MethodChannel _channel = const MethodChannel("com.slins.flutterfft/record");
 
-  static StreamController<List<Object>> _recorderController;
+  static StreamController<FftResult> _recorderController = StreamController.broadcast();
 
-  Stream<List<Object>> get onRecorderStateChanged => _recorderController.stream;
+  Stream<FftResult> get onRecorderStateChanged => _recorderController.stream;
 
   bool _isRecording = false;
 
   double _subscriptionDuration = 0.25;
-
   int _numChannels = 1;
   int _sampleRate = 44100;
   AndroidAudioSource _androidAudioSource = AndroidAudioSource.MIC;
   double _tolerance = 1.0;
 
-  double _frequency = 0;
+  FftResult lastResult;
 
-  String _note = "";
-  double _target = 0;
-  double _distance = 0;
-  int _octave = 0;
-
-  String _nearestNote = "";
-  double _nearestTarget = 0;
-  double _nearestDistance = 0;
-  int _nearestOctave = 0;
-
-  bool _isOnPitch = false;
-
-  List<String> _tuning = ["E4", "B3", "G3", "D3", "A2", "E2"];
+  final _standardTuning = const <String>["E2", "A2", "D3", "G3", "B3", "E4"];
 
   bool get getIsRecording => _isRecording;
-  double get getSubscriptionDuration => _subscriptionDuration;
-  int get getNumChannels => _numChannels;
-  int get getSampleRate => _sampleRate;
-  AndroidAudioSource get getAndroidAudioSource => _androidAudioSource;
-  double get getTolerance => _tolerance;
-
-  double get getFrequency => _frequency;
-
-  String get getNote => _note;
-  double get getTarget => _target;
-  double get getDistance => _distance;
-  int get getOctave => _octave;
-
-  String get getNearestNote => _nearestNote;
-  double get getNearestTarget => _nearestTarget;
-  double get getNearestDistance => _nearestDistance;
-  int get getNearestOctave => _nearestOctave;
-
-  bool get getIsOnPitch => _isOnPitch;
-
-  List<String> get getTuning => _tuning;
-
-  set setIsRecording(bool isRecording) => _isRecording = isRecording;
-  set setSubscriptionDuration(double subscriptionDuration) =>
-      _subscriptionDuration = subscriptionDuration;
-  set setTolerance(double tolerance) => _tolerance = tolerance;
-  set setFrequency(double frequency) => _frequency = frequency;
-
-  set setNumChannels(int numChannels) => _numChannels = numChannels;
-  set setSampleRate(int sampleRate) => _sampleRate = sampleRate;
-  set setAndroidAudioSource(AndroidAudioSource androidAudioSource) =>
-      _androidAudioSource = androidAudioSource;
-
-  set setNote(String note) => _note = note;
-  set setTarget(double target) => _target = target;
-  set setDistance(double distance) => _distance = distance;
-  set setOctave(int octave) => _octave = octave;
-
-  set setNearestNote(String nearestNote) => _nearestNote = nearestNote;
-  set setNearestTarget(double nearestTarget) => _nearestTarget = nearestTarget;
-  set setNearestDistance(double nearestDistance) =>
-      _nearestDistance = nearestDistance;
-  set setNearestOctave(int nearestOctave) => _nearestOctave = nearestOctave;
-
-  set setIsOnPitch(bool isOnPitch) => _isOnPitch = isOnPitch;
-
-  set setTuning(List<String> tuning) => _tuning = tuning;
 
   Future<void> _setRecorderCallback() async {
-    if (_recorderController == null) {
-      _recorderController = new StreamController.broadcast();
-    }
-
     _channel.setMethodCallHandler((MethodCall call) {
       switch (call.method) {
         case "updateRecorderProgress":
-          if (_recorderController != null) {
-            _recorderController.add(call.arguments);
-          } else {
-            print("Is not null");
-          }
+          lastResult = FftResult(call.arguments as List);
+          _recorderController.add(lastResult);
           break;
         default:
           throw new ArgumentError("Unknown method: ${call.method}");
@@ -103,18 +37,18 @@ class FlutterFft {
     });
   }
 
-  Future<void> _removeRecorderCallback() async {
-    if (_recorderController != null) {}
-    _recorderController
-      ..add(null)
-      ..close();
-    _recorderController = null;
-  }
-
-  Future<String> startRecorder() async {
+  Future<String> startRecorder({
+    List<String> tuning,
+    double subscriptionDuration,
+    int numChannels,
+    int sampleRage,
+    int audioSource,
+    int tolerance,
+  }) async {
     try {
-      await _channel.invokeMethod("setSubscriptionDuration",
-          <String, double>{'sec': this.getSubscriptionDuration});
+      await _channel.invokeMethod("setSubscriptionDuration", <String, double>{
+        'sec': subscriptionDuration ?? _subscriptionDuration,
+      });
     } catch (err) {
       print("Could not set subscription duration, error: $err");
     }
@@ -127,15 +61,15 @@ class FlutterFft {
       String result = await _channel.invokeMethod(
         'startRecorder',
         <String, dynamic>{
-          'tuning': this.getTuning,
-          'numChannels': this.getNumChannels,
-          'sampleRate': this.getSampleRate,
-          'androidAudioSource': this.getAndroidAudioSource?.value,
-          'tolerance': this.getTolerance,
+          'tuning': tuning ?? _standardTuning,
+          'numChannels': numChannels ?? _numChannels,
+          'sampleRate': sampleRage ?? _sampleRate,
+          'audioSource': audioSource ?? _androidAudioSource.value,
+          'tolerance': tolerance ?? _tolerance,
         },
       );
       _setRecorderCallback();
-      this.setIsRecording = true;
+      _isRecording = true;
 
       return result;
     } catch (err) {
@@ -149,8 +83,11 @@ class FlutterFft {
     }
 
     String result = await _channel.invokeMethod("stopRecorder");
-    this.setIsRecording = false;
-    _removeRecorderCallback();
+
+    _isRecording = false;
+
+    // Clear te latest result
+    _recorderController.add(null);
 
     return result;
   }
@@ -158,18 +95,23 @@ class FlutterFft {
 
 class RecorderRunningException implements Exception {
   final String message;
+
   RecorderRunningException(this.message);
 }
 
 class RecorderStoppedException implements Exception {
   final String message;
+
   RecorderStoppedException(this.message);
 }
 
 class AndroidAudioSource {
   final _value;
+
   const AndroidAudioSource._internal(this._value);
+
   toString() => 'AndroidAudioSource.$_value';
+
   int get value => _value;
 
   static const DEFAULT = const AndroidAudioSource._internal(0);
@@ -183,4 +125,63 @@ class AndroidAudioSource {
   static const UNPROCESSED = const AndroidAudioSource._internal(8);
   static const RADIO_TUNER = const AndroidAudioSource._internal(9);
   static const HOTWORD = const AndroidAudioSource._internal(10);
+}
+
+class FftResult {
+  /// Tolerance (int) -> data[0]
+  final int tolerance;
+
+  /// Frequency (double) -> data[1];
+  final double frequency;
+
+  /// Note (string) -> data[2];
+  final String note;
+
+  /// Target (double) -> data[3];
+  final double target;
+
+  /// Distance (double) -> data[4];
+  final double distance;
+
+  /// Octave (int) -> data[5];
+  final int octave;
+
+  /// NearestNote (string) -> data[6];
+  final String nearestNote;
+
+  /// NearestTarget (double) -> data[7];
+  final double nearestTarget;
+
+  /// NearestDistance (double) -> data[8];
+  final double nearestDistance;
+
+  /// NearestOctave (int) -> data[9];
+  final int nearestOctave;
+
+  /// IsOnPitch (bool) -> data[10];
+  final bool isOnPitch;
+
+  FftResult(List data)
+      : tolerance = tryCast<double>(data[0]).toInt(),
+        frequency = tryCast<double>(data[1]),
+        note = tryCast<String>(data[2]),
+        target = tryCast<double>(data[3]),
+        distance = tryCast<double>(data[4]),
+        octave = tryCast<int>(data[5]),
+        nearestNote = tryCast<String>(data[6]),
+        nearestTarget = tryCast<double>(data[7]),
+        nearestDistance = tryCast<double>(data[8]),
+        nearestOctave = tryCast<int>(data[9]),
+        isOnPitch = tryCast<bool>(data[10]) {
+    print(data);
+  }
+}
+
+T tryCast<T>(dynamic x, {T fallback}) {
+  try {
+    return (x as T);
+  } on TypeError {
+    print('CastError when trying to cast $x to $T!');
+    return fallback;
+  }
 }

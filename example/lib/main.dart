@@ -8,21 +8,46 @@ class Application extends StatefulWidget {
   ApplicationState createState() => ApplicationState();
 }
 
-class ApplicationState extends State<Application> {
-  double frequency; // Frequency variable which will be updated with th-> data returned by the plugin.
-  String note; // Note variable which will be updated with th-> data returned by the plugin
-  bool isRecording; // Is recording variable which will be updated with th-> data returned by the plugin
+class ApplicationState extends State<Application> with WidgetsBindingObserver {
+  FftResult result;
+  bool isRecording = false;
 
   FlutterFft flutterFft = new FlutterFft();
 
   @override
   void initState() {
-    // Initialize some values, then call the "_initialize()" function, which will initialize the recorder.
-    isRecording = flutterFft.getIsRecording;
-    frequency = flutterFft.getFrequency;
-    note = flutterFft.getNote;
     super.initState();
-    _initialize();
+    WidgetsBinding.instance.addObserver(this);
+
+    flutterFft.onRecorderStateChanged.listen((data) {
+      setState(() => result = data);
+    }, onError: (e) => print(e));
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    /// Stop when entering the background
+    if (state != AppLifecycleState.resumed) {
+      flutterFft.stopRecorder();
+    }
+  }
+
+  void _toggleRecording() async {
+    if (flutterFft.getIsRecording) {
+      await flutterFft.stopRecorder();
+    } else {
+      await flutterFft.startRecorder();
+    }
+
+    setState(() => isRecording = flutterFft.getIsRecording);
   }
 
   @override
@@ -32,81 +57,54 @@ class ApplicationState extends State<Application> {
       theme: ThemeData.dark(),
       color: Colors.blue,
       home: Scaffold(
+        floatingActionButton: FloatingActionButton(
+          child: Icon(isRecording ? Icons.pause : Icons.play_arrow),
+          onPressed: _toggleRecording,
+        ),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              // If the plugin is recording, return the current note, otherwise, return "Not recording..."
-              isRecording
-                  ? Text(
-                      "Current note: $note",
-                      style: TextStyle(
-                        fontSize: 35,
-                      ),
-                    )
-                  : Text(
-                      "Not recording",
-                      style: TextStyle(
-                        fontSize: 35,
-                      ),
-                    ),
-              // If the plugin is recording, return the current frequency, otherwise, return "Not recording..."
-              isRecording
-                  ? Text(
-                      "Current frequency: ${frequency.toStringAsFixed(2)}",
-                      style: TextStyle(
-                        fontSize: 35,
-                      ),
-                    )
-                  : Text(
-                      "Not recording",
-                      style: TextStyle(
-                        fontSize: 35,
-                      ),
-                    ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                // If the plugin is recording
+                if (isRecording) ...[
+                  Value("Current note:", "${result?.note ?? '-'}"),
+                  Value("Current octave:", "${result?.octave ?? '-'}"),
+                  Value("Current frequency:", "${result?.frequency?.toStringAsFixed(2) ?? '-'}"),
+                  Value("Is on pitch:", "${result?.isOnPitch?.toString() ?? '-'}"),
+                ],
+
+                // If not recording
+                if (!isRecording)
+                  Text(
+                    "Not recording",
+                    style: TextStyle(fontSize: 35),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  _initialize() async {
-    print("Starting recorder...");
-    await flutterFft.startRecorder(); // Waits for the recorder to properly start.
-    print("Recorder started.");
-    setState(() => isRecording =
-        flutterFft.getIsRecording); // Set the local "isRecording" variable to true once the recorder has started.
+class Value extends StatelessWidget {
+  final String label;
+  final String value;
 
-    // Listens to the update stream, whenever there's ne-> data, update the local "frequency" and "note"
-    // with one of the values returned by the plugin.
-    // Also update the plugin's local note and frequency variables.
-    flutterFft.onRecorderStateChanged.listen(
-      (data) => {
-        setState(
-          () => {
-            // Data indexes at the end of file.
-            frequency = data[1],
-            note = data[2],
-          },
-        ),
-        flutterFft.setNote = note,
-        flutterFft.setFrequency = frequency,
-      },
+  final style = TextStyle(fontSize: 20);
+
+  Value(this.label, this.value, {Key key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: style)),
+        Text(value, style: style),
+      ],
     );
   }
-
-// Tolerance (int) -> data[0]
-// Frequency (double) -> data[1];
-// Note (string) -> data[2];
-// Target (double) -> data[3];
-// Distance (double) -> data[4];
-// Octave (int) -> data[5];
-
-// NearestNote (string) -> data[6];
-// NearestTarget (double) -> data[7];
-// NearestDistance (double) -> data[8];
-// NearestOctave (int) -> data[9];
-
-// IsOnPitch (bool) -> data[10];
 }

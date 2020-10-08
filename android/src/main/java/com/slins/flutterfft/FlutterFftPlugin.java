@@ -77,7 +77,7 @@ public class FlutterFftPlugin implements MethodCallHandler, PluginRegistry.Reque
                 List<Object> tuning = call.argument("tuning");
                 Integer sampleRate = call.argument("sampleRate"); // SAMPLE RATE, DEFAULT: 22050
                 Integer numChannels = call.argument("numChannels"); // NUMBER OF CHANNELS, DEFAULT: 1
-                int androidAudioSource = call.argument("androidAudioSource"); // AUDIO SOURCE, DEFAULT: MICROPHONE
+                int androidAudioSource = call.argument("audioSource"); // AUDIO SOURCE, DEFAULT: MICROPHONE
                 double tolerance = call.argument("tolerance"); // HOW APART CAN THE CURRENT PITCH AND TARGET PITCH BE TO CONSIDER IT ON PITCH, DEFAULT: 1.0
                 startRecorder(tuning, numChannels, sampleRate, androidAudioSource, (float) tolerance, result); // CALL LOCAL "startRecorder" METHOD (JAVA IMPLEMENTATION)
             });
